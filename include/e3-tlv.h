@@ -62,6 +62,7 @@ int message_walk_through_tlv_entries(struct tlv_major_index_base * base,
 	struct message_header * msg_hdr,
 	uint8_t * entry_start,
 	void * arg);
+uint8_t * message_builder_expand_tlv(struct message_builder * builder,int len);
 
 
 

@@ -110,4 +110,25 @@ int message_walk_through_tlv_entries(struct tlv_major_index_base * base,
 	}
 	return 0;
 }
-
+/*expand last tlv's length with given para*/
+uint8_t * message_builder_expand_tlv(struct message_builder * builder,int len)
+{
+	uint8_t * new_start=NULL;
+	int idx=0;
+	int iptr;
+	struct tlv_header * tlv=NULL;
+	if(!builder->initialized)
+		return NULL;
+	if((builder->buffer_len-builder->buffer_iptr)<len)
+		return NULL;
+	for(idx=0,iptr=0;idx<builder->msg_hdr_ptr->nr_tlvs;idx++){
+		tlv=(struct tlv_header*)(MESSAGE_HDR_LENGTH+builder->buffer+iptr);
+		iptr+=TLV_HDR_LENGTH+tlv->length;
+	}
+	if(!tlv)
+		return NULL;
+	new_start=tlv->length+TLV_HDR_LENGTH+(uint8_t *)tlv;
+	tlv->length+=len;
+	builder->msg_hdr_ptr->total_length+=len;
+	return new_start;
+}

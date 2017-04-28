@@ -3,7 +3,7 @@
 #include <e3-api.h>
 #include <assert.h>
 #include <stdio.h>
-
+#include <e3-api-wrapper.h>
 char buffer[256];
 
 enum major_type{
@@ -23,7 +23,7 @@ struct tlv_callback_entry tlv_entires[]={
 		{.type=MAKE_UINT32(major_type_foo,2),.callback_func=default_callback_func},
 		{.type=0,.callback_func=0},
 };
-uint64_t dummy_l2_func(uint64_t foo,char*arg)
+e3_type dummy_l2_func(e3_type foo,e3_type arg)
 {
 	return 0;
 }
@@ -37,6 +37,7 @@ DECLARE_E3_API(l2_api)={
 	}
 };
 
+
 DECLARE_E3_API(l3_api)={
 	.api_name="l3_add_fib",
 };
@@ -44,7 +45,30 @@ DECLARE_E3_API(l3_api)={
 
 int main()
 {
+	
+	
+	
+	
 	#if 0
+	/*
+	struct message_builder  builder;
+	void * value;
+	int rc=message_builder_init(&builder,buffer,180);
+	
+	
+	struct tlv_header tlv;
+
+	tlv.type=MAKE_UINT32(major_type_foo,1);
+	tlv.length=12;
+	rc=message_builder_add_tlv(&builder,&tlv,"hello world");
+	printf("%d %d\n",rc,builder.msg_hdr_ptr->nr_tlvs);
+
+	tlv.type=MAKE_UINT32(major_type_foo,2);
+	tlv.length=0;
+	rc=message_builder_add_tlv(&builder,&tlv,"m world");
+	printf("%d %d\n",rc,builder.msg_hdr_ptr->nr_tlvs);
+	message_builder_expand_tlv(&builder,23);
+	*/
 	struct message_builder  builder;
 	void * value;
 	int rc=message_builder_init(&builder,buffer,180);
@@ -71,13 +95,32 @@ int main()
 	
 	rc=message_walk_through_tlv_entries(base,builder.msg_hdr_ptr,builder.msg_hdr_ptr+1,0);
 	printf("walk %d\n",rc);
-	#endif
-	struct e3_api_declaration * api=e3_api_head;
-	for(;api;api=api->next){
-		printf("%s\n",api->api_name);
-	}
 	
-	printf("%p\n",search_e3_api_by_name("l2_add_fibs"));
+	struct e3_api_declaration * api=e3_api_head;
+		for(;api;api=api->next){
+			printf("%s\n",api->api_name);
+		}
+		struct e3_api_declaration api_template;
+		api_template.api_name="l2_add_fib";
+		api_template.args_desc[0].type=e3_arg_type_uint8_t;
+		api_template.args_desc[0].behavior=e3_arg_behavior_input;
+		api_template.args_desc[1].type=e3_arg_type_uint8_t_ptr;
+		api_template.args_desc[1].behavior=e3_arg_behavior_input;
+		api_template.args_desc[1].len=64;
+		api_template.args_desc[2].type=e3_arg_type_none;
+		printf("%p\n",e3_api_nr_args(&api_template));
+		printf("client:%p\n",allocate_e3_api_client("tcp://localhost:507"));
+	#endif
+	
+	struct e3_api_service * service=allocate_e3_api_service("tcp://*:507");
+	printf("service:%p\n",service);
+	
+	while(1){
+		e3_api_service_try_to_poll_request(service);
+		e3_api_service_dispatch_apis(service);
+		e3_api_service_send_reponse(service);
+		sleep(1);
+	}
 	return 0;
 	
 }

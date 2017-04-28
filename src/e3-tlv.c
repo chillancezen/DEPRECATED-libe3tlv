@@ -38,7 +38,8 @@ int message_builder_add_tlv(struct message_builder * builder,struct tlv_header *
 	tlv_tmp->type=tlv->type;
 	builder->buffer_iptr+=TLV_HDR_LENGTH;
 
-	memcpy(builder->buffer_iptr+builder->buffer,value,tlv->length);
+	if(tlv->length)
+		memcpy(builder->buffer_iptr+builder->buffer,value,tlv->length);
 	builder->buffer_iptr+=tlv->length;
 
 	builder->msg_hdr_ptr->total_length+=needed_room;
@@ -110,6 +111,28 @@ int message_walk_through_tlv_entries(struct tlv_major_index_base * base,
 	}
 	return 0;
 }
+
+int validate_tlv_encoding(void * buffer,int total_length)
+{
+	#define _(con) if(!(con)) goto error;
+	
+	struct message_header * msg_hdr=(struct message_header *)buffer;
+	struct tlv_header * tlv=(struct tlv_header *)(MESSAGE_HDR_LENGTH+(uint8_t *)msg_hdr);
+	int idx=0,iptr=0;
+	_(total_length>=MESSAGE_HDR_LENGTH);
+	_(msg_hdr->magic==MESSAGE_MAGIC);
+	_(msg_hdr->total_length==total_length);
+	
+	for(idx=0,iptr=MESSAGE_HDR_LENGTH;idx<msg_hdr->nr_tlvs;idx++){
+		iptr+=tlv->length+TLV_HDR_LENGTH;
+		tlv=(struct tlv_header *)((tlv->length+TLV_HDR_LENGTH)+(uint8_t *)tlv);
+	}
+	_(iptr==total_length);
+	return 1;
+	#undef _
+	error:
+		return 0;
+}
 /*expand last tlv's length with given para*/
 uint8_t * message_builder_expand_tlv(struct message_builder * builder,int len)
 {
@@ -130,5 +153,6 @@ uint8_t * message_builder_expand_tlv(struct message_builder * builder,int len)
 	new_start=tlv->length+TLV_HDR_LENGTH+(uint8_t *)tlv;
 	tlv->length+=len;
 	builder->msg_hdr_ptr->total_length+=len;
+	builder->buffer_iptr+=len;
 	return new_start;
 }

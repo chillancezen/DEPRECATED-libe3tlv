@@ -64,6 +64,8 @@ int message_walk_through_tlv_entries(struct tlv_major_index_base * base,
 	void * arg);
 uint8_t * message_builder_expand_tlv(struct message_builder * builder,int len);
 
+int validate_tlv_encoding(void * buffer,int total_length);
+
 
 
 

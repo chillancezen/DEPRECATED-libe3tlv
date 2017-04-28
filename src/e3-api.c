@@ -34,3 +34,15 @@ struct e3_api_declaration * search_e3_api_by_template(struct e3_api_declaration 
 	}
 	return api;
 }
+int e3_api_nr_args(struct e3_api_declaration * api)
+{
+	int nr_arg=0;
+	int idx=0;
+	for(idx=0;idx<MAX_ARGUMENT_SUPPORTED;idx++){
+		if(api->args_desc[idx].type==e3_arg_type_none)
+			break;
+		nr_arg++;
+	}
+	return nr_arg;
+}
+

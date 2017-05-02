@@ -4,7 +4,42 @@
 #include <assert.h>
 #include <stdio.h>
 #include <e3-api-wrapper.h>
-char buffer[256];
+
+e3_type dummy_l2_func(e3_type service,e3_type foo,e3_type bar,e3_type bar1)
+{
+	uint8_t _foo=e3_type_to_uint8_t(foo);
+	uint8_t * _bar=e3_type_to_uint8_t_ptr(bar);
+	uint8_t * _bar1=e3_type_to_uint8_t_ptr(bar1);
+	*(uint64_t*)_bar1=0x1245fe12dd;
+	memset(_bar,0x0,64);
+	strcpy(_bar,"welcome e3-tlv-rpc");
+	return 0x2356;
+}
+DECLARE_E3_API(l2_api)={
+	.api_name="l2_add_fib",
+	.api_callback_func=(api_callback_func)dummy_l2_func,
+	.args_desc={
+		{.type=e3_arg_type_uint8_t,.behavior=e3_arg_behavior_input},
+		{.type=e3_arg_type_uint8_t_ptr,.behavior=e3_arg_behavior_input_and_output,.len=64},
+		{.type=e3_arg_type_uint8_t_ptr,.behavior=e3_arg_behavior_output,.len=8},
+		{.type=e3_arg_type_none},
+	}
+};
+
+
+DECLARE_E3_API(l3_api)={
+	.api_name="l3_add_fib",
+};
+
+
+int main()
+{
+	
+	
+	
+	
+	#if 0
+	char buffer[256];
 
 enum major_type{
 	major_type_foo=1,
@@ -23,33 +58,6 @@ struct tlv_callback_entry tlv_entires[]={
 		{.type=MAKE_UINT32(major_type_foo,2),.callback_func=default_callback_func},
 		{.type=0,.callback_func=0},
 };
-e3_type dummy_l2_func(e3_type foo,e3_type arg)
-{
-	return 0;
-}
-DECLARE_E3_API(l2_api)={
-	.api_name="l2_add_fib",
-	.api_callback_func=(api_callback_func)dummy_l2_func,
-	.args_desc={
-		{.type=e3_arg_type_uint8_t,.behavior=e3_arg_behavior_input},
-		{.type=e3_arg_type_uint8_t_ptr,.behavior=e3_arg_behavior_input,.len=64},
-		{.type=e3_arg_type_none},
-	}
-};
-
-
-DECLARE_E3_API(l3_api)={
-	.api_name="l3_add_fib",
-};
-
-
-int main()
-{
-	
-	
-	
-	
-	#if 0
 	/*
 	struct message_builder  builder;
 	void * value;
@@ -113,12 +121,11 @@ int main()
 	#endif
 	
 	struct e3_api_service * service=allocate_e3_api_service("tcp://*:507");
-	printf("service:%p\n",service);
-	
 	while(1){
-		e3_api_service_try_to_poll_request(service);
-		e3_api_service_dispatch_apis(service);
-		e3_api_service_send_reponse(service);
+		if(e3_api_service_try_to_poll_request(service)>0){
+			e3_api_service_dispatch_apis(service);
+			e3_api_service_send_reponse(service);
+		}	
 		sleep(1);
 	}
 	return 0;

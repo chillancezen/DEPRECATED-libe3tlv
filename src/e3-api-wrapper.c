@@ -7,6 +7,9 @@
 static void * zmq_context=NULL;
 static struct tlv_major_index_base * api_tlv_index_base=NULL;
 static struct tlv_major_index_base * client_api_tlv_index_base=NULL;
+struct e3_api_client * g_e3_api_client_ptr=NULL;
+pthread_mutex_t api_allocator_guard=PTHREAD_MUTEX_INITIALIZER;
+
 int do_api_callback_func(struct e3_api_service * service)
 {
 	
@@ -20,8 +23,9 @@ int do_api_callback_func(struct e3_api_service * service)
 	e3_type args_to_push_stack[MAX_ARGUMENT_SUPPORTED];
 	struct e3_api_declaration * api=NULL;
 	#define _(con) if(!(con)) goto error;
-	_(api=search_e3_api_by_template(&service->api_template));
 	service->send_length=0;
+	_(api=search_e3_api_by_template(&service->api_template));
+	
 	_(!message_builder_init(&builder,service->send_mbuf,MAX_MSG_LENGTH));
 	tlv.type=MAKE_UINT32(e3_tlv_major_type_api,e3_tlv_api_minor_type_begin);
 	tlv.length=0;
@@ -324,6 +328,8 @@ struct e3_api_client * allocate_e3_api_client(char * service_endpoint_to_connect
 	client->poll_items[0].fd=0;
 	client->poll_items[0].events=ZMQ_POLLIN;
 	client->poll_items[0].revents=0;
+	client->next_api_client=NULL;
+	pthread_mutex_init(&client->client_guard,NULL);
 	return client;
 	error_zmq:
 		if(client->socket_handler)
@@ -468,4 +474,45 @@ int issue_e3_api_request(struct e3_api_client * client)
 	return 0;
 	error:
 		return -1;
+}
+
+void publish_e3_api_client(struct e3_api_client * client)
+{
+	if(!g_e3_api_client_ptr){
+		client->next_api_client=client;
+		g_e3_api_client_ptr=client;
+	}else{
+		struct e3_api_client * lplast=g_e3_api_client_ptr;
+		while(lplast->next_api_client!=g_e3_api_client_ptr)
+			lplast=lplast->next_api_client;
+		client->next_api_client=g_e3_api_client_ptr;
+		lplast->next_api_client=client;
+	}	
+}
+struct e3_api_client * reference_e3_api_client()
+{
+
+	static struct e3_api_client * last_client_used=NULL;
+	struct e3_api_client * lptr=NULL;
+	struct e3_api_client * lpfound=NULL;
+	
+	pthread_mutex_lock(&api_allocator_guard);
+	if(!last_client_used)
+		last_client_used=g_e3_api_client_ptr;
+	
+	lptr=last_client_used;
+	do{
+		lptr=lptr->next_api_client;
+		if(!pthread_mutex_trylock(&lptr->client_guard)){
+			lpfound=lptr;
+			last_client_used=lptr;
+		}
+	}while(lptr!=last_client_used);
+
+	pthread_mutex_unlock(&api_allocator_guard);
+	return lpfound;
+}
+void dereference_e3_api_client(struct e3_api_client * client)
+{
+	pthread_mutex_unlock(&client->client_guard);
 }

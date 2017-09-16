@@ -4,7 +4,7 @@
 #include <assert.h>
 
 
-declare_e3_api_client_pointer();
+declare_e3_api_client_base();
 
 
 
@@ -29,8 +29,9 @@ uint64_t l2_add_fib(uint64_t * api_ret,uint8_t foo,uint8_t * bar,uint8_t* bar1)
 	e3_type real_args[MAX_ARGUMENT_SUPPORTED];
 	
 	struct message_header * msg_hdr;
-	struct e3_api_client * client=deference_e3_api_client_pointer();
+	struct e3_api_client * client=reference_e3_api_client();
 	struct e3_api_declaration * api=search_e3_api_by_name("l2_add_fib");
+	printf("api_client:%p\n",client);
 	void * output_list[MAX_ARGUMENT_SUPPORTED+1];/*the first element always is api_ret,mandatory*/
 	_(client);
 	_(api);
@@ -47,46 +48,48 @@ uint64_t l2_add_fib(uint64_t * api_ret,uint8_t foo,uint8_t * bar,uint8_t* bar1)
 	_(!encode_e3_api_request(client->send_mbuf,MAX_MSG_LENGTH,api,real_args));
 	_(!issue_e3_api_request(client));
 	#undef _
+	dereference_e3_api_client(client);
 	return 0;
 	error:
-
+		if(client)
+			dereference_e3_api_client(client);
 		return -1;
 }
 
-
-
-int main(int argc,char**argv)
+void * foo(void*arg)
 {
-	struct e3_api_client * client=allocate_e3_api_client("tcp://localhost:507");
-	assert(client);
-	export_e3_api_client_pointer(client);
 	uint64_t api_ret;
 	char foo[64];
 	uint64_t foo1;
 	strcpy(foo,"hello world,miss");
-	int rc=l2_add_fib(&api_ret,0x25,foo,(uint8_t*)&foo1);
-	printf("call rc %d:%p %s %p\n",rc,api_ret,foo,(void*)foo1);
-	
-	#if 0
-	struct message_builder  builder;
-	void * value;
-	int rc=message_builder_init(&builder,buffer,180);
-	struct tlv_header tlv;
+	int idx=0;
+	int rc;
+	for(idx=0;idx<10;idx++){
+		rc=l2_add_fib(&api_ret,0x25,foo,(uint8_t*)&foo1);
+		printf("%p,call rc %d:%p %s %p\n",arg,rc,api_ret,foo,(void*)foo1);
+	}
 
-	tlv.type=MAKE_UINT32(e3_tlv_major_type_api,e3_tlv_api_minor_type_begin);
-	tlv.length=0;
-	message_builder_add_tlv(&builder,&tlv,NULL);
-	
-	tlv.type=MAKE_UINT32(e3_tlv_major_type_api,e3_tlv_api_minor_type_procname);
-	tlv.length=strlen("foo_rpc_func")+1;
-	message_builder_add_tlv(&builder,&tlv,"foo_rpc_func");
+	return NULL;
+}
 
-	tlv.type=MAKE_UINT32(e3_tlv_major_type_api,e3_tlv_api_minor_type_end);
-	tlv.length=0;
-	message_builder_add_tlv(&builder,&tlv,NULL);
+int main(int argc,char**argv)
+{
+	struct e3_api_client * client;
+	client=allocate_e3_api_client("tcp://localhost:507");
+	assert(client);
+	publish_e3_api_client(client);
+	client=allocate_e3_api_client("tcp://localhost:507");
+	assert(client);
+	publish_e3_api_client(client);
+
+	pthread_t pt1,pt2,pt3;
+
+	assert(!pthread_create(&pt1,NULL,foo,(void*)1));
+	assert(!pthread_create(&pt2,NULL,foo,(void*)2));
+	assert(!pthread_create(&pt3,NULL,foo,(void*)3));
+	pthread_join(pt1,NULL);
+	pthread_join(pt2,NULL);
+	pthread_join(pt3,NULL);
 	
-	rc=zmq_send(client->socket_handler,buffer,builder.buffer_iptr,0);
-	#endif
-	getchar();
 	return 0;
 }

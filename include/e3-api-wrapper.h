@@ -2,6 +2,7 @@
 #define _E3_API_WRAPPER_H
 #include <e3-api.h>
 #include <zmq.h>
+#include <pthread.h>
 
 /*system global definition*/
 
@@ -50,6 +51,10 @@ struct e3_api_client{
 	int nr_output_list;
 	int output_list_indicator;
 	int api_calling_status;
+
+	struct e3_api_client * next_api_client;
+	pthread_mutex_t client_guard;
+	
 };
 
 struct e3_api_service * allocate_e3_api_service(char * service_endpoint_to_bind);
@@ -62,9 +67,14 @@ int encode_e3_api_request(uint8_t * buffer,
 	struct e3_api_declaration * api,
 	e3_type * real_args);
 
-#define declare_e3_api_client_pointer() struct e3_api_client * g_e3_api_client_ptr=NULL;
-#define export_e3_api_client_pointer(client)  g_e3_api_client_ptr=(client);
-#define deference_e3_api_client_pointer() (g_e3_api_client_ptr)
+
+
+#define declare_e3_api_client_base() extern struct e3_api_client * g_e3_api_client_ptr;
+void publish_e3_api_client(struct e3_api_client * client);
+
+struct e3_api_client * reference_e3_api_client(void);
+void dereference_e3_api_client(struct e3_api_client * client);
+
 int issue_e3_api_request(struct e3_api_client * client);
 
 #endif
